@@ -1,0 +1,63 @@
+#  Import Libraries
+import pandas as pd
+import numpy as np
+import re
+import os
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import LabelEncoder
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+# File Path
+file_path = "/content/archive.zip"
+# Check & Load Dataset
+if os.path.exists(file_path):
+    df = pd.read_csv(file_path)
+else:
+    raise FileNotFoundError(f"Dataset not found at path: {file_path}")
+# Preprocessing
+df = df[['instruction', 'intent']]  # Keep only relevant columns# Clean the text
+def clean_text(text):
+    text = str(text).lower()
+    text = re.sub(r"[^a-zA-Z0-9\s]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+df['clean_text'] = df['instruction'].apply(clean_text)
+
+# Encode target labels
+le = LabelEncoder()
+df['intent_encoded'] = le.fit_transform(df['intent'])
+
+# TF-IDF Vectorization
+vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
+X = vectorizer.fit_transform(df['clean_text'])
+y = df['intent_encoded']
+
+# Train/Test Split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=42
+)
+
+# Train Logistic Regression
+model = LogisticRegression(max_iter=300)
+model.fit(X_train, y_train)
+
+# Evaluation
+y_pred = model.predict(X_test)
+print("\n Classification Report:\n")
+print(classification_report(y_test, y_pred, target_names=le.classes_))
+
+# Confusion Matrix Visualization
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(14, 10))
+sns.heatmap(cm, cmap="Blues", xticklabels=le.classes_, yticklabels=le.classes_, fmt='g')
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.xticks(rotation=90)
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.show()
